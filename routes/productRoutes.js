@@ -3,10 +3,11 @@ const router = express.Router();
 const Product = require("../models/Product");
 const cloudinary = require("../config/cloudinary");
 const upload = require("../middleware/upload");
+const auth = require("../middleware/auth");
 
 const streamifier = require("streamifier");
 
-router.post("/", upload.single("image"), async (req, res) => {
+router.post("/", auth, upload.single("image"), async (req, res) => {
   try {
     const { title, description, category, subcategory } = req.body;
 
@@ -49,6 +50,31 @@ router.get("/", async (req, res) => {
   try {
   const products = await Product.find().populate("category", "name");
     res.json(products);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put("/:id", auth, async (req, res) => {
+  try {
+    const { title, description } = req.body;
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      { title, description },
+      { new: true }
+    ).populate("category", "name");
+    if (!product) return res.status(404).json({ message: "Product not found" });
+    res.json(product);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete("/:id", auth, async (req, res) => {
+  try {
+    const product = await Product.findByIdAndDelete(req.params.id);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+    res.json({ message: "Product deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
