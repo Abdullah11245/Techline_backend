@@ -9,7 +9,7 @@ const streamifier = require("streamifier");
 
 router.post("/", auth, upload.single("image"), async (req, res) => {
   try {
-    const { title, description, category, subcategory } = req.body;
+    const { title, description, category, subcategory, subSubcategory } = req.body;
 
     if (!req.file) return res.status(400).json({ message: "Image is required" });
     if (!category) return res.status(400).json({ message: "Category is required" });
@@ -34,8 +34,9 @@ router.post("/", auth, upload.single("image"), async (req, res) => {
       title,
       description,
       image: result.secure_url,
-      category,       // should be category ObjectId
-      subcategory,    // optional subcategory string
+      category,
+      subcategory: subcategory?.trim() || undefined,
+      subSubcategory: subSubcategory?.trim() || undefined,
     });
 
     await product.save();
@@ -55,12 +56,34 @@ router.get("/", async (req, res) => {
   }
 });
 
+router.get("/:id", async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id)
+      .populate("category", "name");
+
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    res.json(product);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.put("/:id", auth, async (req, res) => {
   try {
-    const { title, description } = req.body;
+    const { title, description, subcategory, subSubcategory } = req.body;
     const product = await Product.findByIdAndUpdate(
       req.params.id,
-      { title, description },
+      {
+        title,
+        description,
+        ...(subcategory !== undefined ? { subcategory: subcategory?.trim() || undefined } : {}),
+        ...(subSubcategory !== undefined
+          ? { subSubcategory: subSubcategory?.trim() || undefined }
+          : {}),
+      },
       { new: true }
     ).populate("category", "name");
     if (!product) return res.status(404).json({ message: "Product not found" });

@@ -11,7 +11,11 @@ const productSchema = new mongoose.Schema(
       required: true, // must belong to a category
     },
     subcategory: {
-      type: String, // store the subcategory name from the category document
+      type: String,
+      required: false,
+    },
+    subSubcategory: {
+      type: String,
       required: false,
     },
   },

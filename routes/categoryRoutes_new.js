@@ -4,6 +4,33 @@ const router = express.Router();
 const Category = require("../models/Category");
 const auth = require("../middleware/auth");
 
+const normalizeSubcategories = (subcategories = []) =>
+  (Array.isArray(subcategories) ? subcategories : [])
+    .map((sub) => {
+      if (typeof sub === "string") {
+        const name = sub.trim();
+        return name ? { name, subSubcategories: [] } : null;
+      }
+
+      const name = typeof sub?.name === "string" ? sub.name.trim() : "";
+      if (!name) return null;
+
+      const subSubcategories = (Array.isArray(sub.subSubcategories) ? sub.subSubcategories : [])
+        .map((child) => {
+          if (typeof child === "string") {
+            const childName = child.trim();
+            return childName ? { name: childName } : null;
+          }
+
+          const childName = typeof child?.name === "string" ? child.name.trim() : "";
+          return childName ? { name: childName } : null;
+        })
+        .filter(Boolean);
+
+      return { name, subSubcategories };
+    })
+    .filter(Boolean);
+
 // GET all categories
 router.get("/", async (req, res) => {
   try {
@@ -33,8 +60,8 @@ router.post("/", auth, async (req, res) => {
     if (!name) return res.status(400).json({ message: "Category name is required" });
 
     const category = new Category({
-      name,
-      subcategories: subcategories || [], // optional array of {name}
+      name: name.trim(),
+      subcategories: normalizeSubcategories(subcategories),
     });
 
     await category.save();
@@ -54,11 +81,13 @@ router.post("/:id/subcategory", auth, async (req, res) => {
     if (!category) return res.status(404).json({ message: "Category not found" });
 
     // Avoid duplicates
-    if (category.subcategories.some((sub) => sub.name === name)) {
+    const trimmedName = name.trim();
+
+    if (category.subcategories.some((sub) => sub.name === trimmedName)) {
       return res.status(400).json({ message: "Subcategory already exists" });
     }
 
-    category.subcategories.push({ name });
+    category.subcategories.push({ name: trimmedName, subSubcategories: [] });
     await category.save();
     res.status(200).json(category);
   } catch (err) {
@@ -72,7 +101,7 @@ router.put("/:id", auth, async (req, res) => {
     const { name, subcategories } = req.body;
     const category = await Category.findByIdAndUpdate(
       req.params.id,
-      { name, subcategories },
+      { name: name?.trim(), subcategories: normalizeSubcategories(subcategories) },
       { new: true }
     );
     if (!category) return res.status(404).json({ message: "Category not found" });
